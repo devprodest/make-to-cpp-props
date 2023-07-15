@@ -2,7 +2,7 @@
     "name": "make-to-cpp-props",
     "displayName": "Makefile to C/C++ config",
     "description": "C/Cpp configs generator from makefile",
-    "publisher": "Zaikin.Denis",
+    "publisher": "ZaikinDenis",
     "author": {
         "name": "Zaikin Denis",
         "email": "devprodest@gmail.com",
@@ -20,6 +20,9 @@
     "categories": [
         "Other",
         "Snippets"
+    ],
+    "extensionDependencies": [
+        "ms-vscode.cpptools"
     ],
     "activationEvents": [],
     "main": "./dist/extension.js",
