@@ -52,6 +52,7 @@ async function createConfig(context: vscode.ExtensionContext, item: vscode.Uri, 
 		}
 
 		const files = await vscode.workspace.fs.readDirectory(item);
+
 		if (files.some(f => isMakefile(f[0], f[1]))) {
 
 			const config = await cppConfigMake(context, item, toolchain);
@@ -77,23 +78,25 @@ async function cppConfigSave(item: vscode.Uri, config: Configuration) {
 			await vscode.workspace.fs.createDirectory(vscodeConfig);
 		}
 
-		const configFile = vscode.Uri.joinPath(rootPath, '.vscode', "c_cpp_properties.json");
+		const configFile = path.resolve(rootPath.fsPath, '.vscode', "c_cpp_properties.json");
 
 		let cppProps: ConfigurationJson = {
 			version: 4,
 			configurations: [],
 		};
 
-		if (!fs.existsSync(configFile.fsPath)) {
+		if (!fs.existsSync(configFile)) {
 			cppProps.configurations = [config];
 		}
 		else {
-			cppProps = JSON.parse(fs.readFileSync(configFile.path, { encoding: 'utf8' }).toString());
+			cppProps = JSON.parse(fs.readFileSync(configFile, { encoding: 'utf8' }).toString());
 
 			modifyProps(cppProps, config);
 		}
 
-		fs.writeFileSync(configFile.path, JSON.stringify(cppProps, undefined, 4), {
+
+
+		fs.writeFileSync(configFile, JSON.stringify(cppProps, undefined, 4), {
 			encoding: 'utf8',
 			flag: 'w'
 		});
@@ -103,27 +106,38 @@ async function cppConfigSave(item: vscode.Uri, config: Configuration) {
 function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 	const toolName: string = vscode.workspace.getConfiguration().get('make-to-cpp-props.toolchainName') ?? "gcc";
 
-	const binName = (os.platform() === "win32") ? "linux" : "windows";
-	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", toolName);
-	
-	if (!fs.existsSync(toolchain.path)) {
-		const toolBin = vscode.Uri.joinPath(extensionUri, "bin", binName);
-		vscode.workspace.fs.copy(toolBin, toolchain, { overwrite: true });
+	const binName = (os.type() === "Windows_NT") ? "windows" : "linux";
+	const exeSufix = (os.type() === "Windows_NT") ? ".exe" : "";
+
+	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", toolName + exeSufix);
+
+	try {
+		if (!fs.existsSync(toolchain.path)) {
+			const toolBin = vscode.Uri.joinPath(extensionUri, "bin", binName);
+			vscode.workspace.fs.copy(toolBin, toolchain, { overwrite: true });
+		}
+	} catch (error) {
+		vscode.window.showErrorMessage(error as string);
 	}
 
 	return toolName;
 }
 
 async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<Configuration> {
-	const separator = (os.platform() === "win32") ? ";" : ":";
+	const separator = (os.type() === "Windows_NT") ? ";" : ":";
 
-	execSync('make', {
-		cwd: item.path,
-		env: {
-			...process.env,
-			["PATH"]: `${extensionPath}/bin${separator}${process.env.PATH}`
-		}
-	});
+	try {
+		execSync('make', {
+			cwd: item.fsPath,
+			env: {
+				...process.env,
+				["PATH"]: `${extensionPath}/bin${separator}${process.env.PATH}`
+			}
+		});
+	} catch (error) {
+		vscode.window.showErrorMessage(error as string);
+	}
+
 
 	const output = vscode.Uri.joinPath(item, "output.txt");
 	const doc = await vscode.workspace.openTextDocument(output);
@@ -141,9 +155,16 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 	const defines = new Set(Array.from(defMatch, m => m[1] as string));
 	const includes = new Set(Array.from(incMatch, m => m[1] as string));
 
+	const rootPath = vscode.workspace.getWorkspaceFolder(item)?.uri.fsPath || ".";
+	const makePath = vscode.workspace.asRelativePath(item, false);
+
+	const makeWinPath = path.relative(rootPath, makePath);
+
+	const getPathWork = (item: string) => getPathFromWorkspace((os.type() === "Windows_NT") ? makeWinPath : makePath, item);
+
 	const conf: Configuration = {
 		name: config,
-		includePath: [...includes].map(inc => getPathFromWorkspace(item, inc)),
+		includePath: [...includes].sort().map(inc => getPathWork(inc)),
 		defines: [...defines],
 		intelliSenseMode: 'gcc-arm',
 	};
@@ -152,20 +173,20 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 	conf.cppStandard ??= cppStandard;
 
 
-	if (toolchain.endsWith("gcc")) {
-		const sysroot = execSync(`${toolchain} -print-sysroot 2>&1`).toString();
-		if (sysroot) {
-			conf.compilerPath = getPathFromWorkspace(item, sysroot, toolchain);
-		}
-	}
+	// if (toolchain.endsWith("gcc")) {
+	// 	const sysroot = execSync(`${toolchain} -print-sysroot 2>&1`).toString();
+	// 	if (sysroot) {
+	// 		conf.compilerPath = getPathWork(path.join(sysroot, toolchain));
+	// 	}
+	// }
 
 
 	return conf;
 }
 
 
-function getPathFromWorkspace(root: vscode.Uri, ...item: string[]): string {
-	return "${workspaceFolder}/" + path.join(vscode.workspace.asRelativePath(root, false), ...item);
+function getPathFromWorkspace(makePath: string, item: string): string {
+	return "${workspaceFolder}/" + path.join(makePath, item);
 }
 
 function modifyProps(cppProps: ConfigurationJson, config: Configuration) {

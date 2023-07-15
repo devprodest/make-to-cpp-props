@@ -2,6 +2,7 @@
     "name": "make-to-cpp-props",
     "displayName": "Makefile to C/C++ config",
     "description": "C/Cpp configs generator from makefile",
+    "publisher": "Zaikin.Denis",
     "author": {
         "name": "Zaikin Denis",
         "email": "devprodest@gmail.com",
@@ -11,6 +12,7 @@
         "type": "gitlab",
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
+    "icon": "make-to-cpp.png",
     "version": "0.0.1",
     "engines": {
         "vscode": "^1.79.0"
@@ -64,6 +66,7 @@
         "@typescript-eslint/eslint-plugin": "^5.59.8",
         "@typescript-eslint/parser": "^5.59.8",
         "@vscode/test-electron": "^2.3.2",
+        "copy-webpack-plugin": "^11.0.0",
         "eslint": "^8.41.0",
         "glob": "^8.1.0",
         "mocha": "^10.2.0",
