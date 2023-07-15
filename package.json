@@ -25,7 +25,7 @@
     "main": "./dist/extension.js",
     "contributes": {
         "configuration": {
-            "title": "Makefile 2 Cpp Props",
+            "title": "Makefile to C/C++ config",
             "properties": {
                 "make-to-cpp-props.toolchainName": {
                     "type": "string",
@@ -44,7 +44,7 @@
         "commands": [
             {
                 "command": "make-to-cpp-props.createConfig",
-                "title": "Makefile 2 Cpp Properties"
+                "title": "Сгенерировать конфигурацию"
             }
         ]
     },
