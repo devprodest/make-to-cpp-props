@@ -13,7 +13,7 @@
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.0.2",
+    "version": "0.0.3",
     "engines": {
         "vscode": "^1.79.0"
     },
@@ -59,6 +59,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "Нужно ли заполнять поле \"compilerPath\""
+                },
+                "make-to-cpp-props.generator.make": {
+                    "type": "string",
+                    "default": "make all -j",
+                    "description": "Строка для запуска сборки"
                 }
             }
         },

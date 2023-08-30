@@ -138,7 +138,8 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 
 	const envPath = `${extensionPath}/bin${separator}${process.env.PATH}`;
 	try {
-		execSync('make', {
+		const make = getConfigValue<string>("generator.make") ?? "make";
+		execSync(make, {
 			cwd: item.fsPath,
 			env: {
 				...process.env,
