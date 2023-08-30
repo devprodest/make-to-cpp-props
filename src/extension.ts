@@ -112,11 +112,11 @@ async function cppConfigSave(item: vscode.Uri, config: Configuration) {
 
 function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 	const toolName: string = getConfigValue('toolchainName') ?? "gcc";
+	const toolVersion: string = getConfigValue('toolchainVersion') ?? "8.1.0";
 
-	const binName = (os.type() === "Windows_NT") ? "windows" : "linux";
-	const exeSufix = (os.type() === "Windows_NT") ? ".exe" : "";
+	const binName = (os.type() === "Windows_NT") ? "windows.exe" : "linux";
 
-	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", toolName + exeSufix);
+	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", toolVersion, toolName);
 
 	loger("binName", binName);
 	loger("toolchain", toolchain);
@@ -125,6 +125,7 @@ function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 		if (!fs.existsSync(toolchain.path)) {
 			const toolBin = vscode.Uri.joinPath(extensionUri, "bin", binName);
 			vscode.workspace.fs.copy(toolBin, toolchain, { overwrite: true });
+			vscode.workspace.fs.writeFile(vscode.Uri.joinPath(extensionUri, "bin", toolVersion, "version.cfg"), new TextEncoder().encode(toolVersion));
 		}
 	} catch (error) {
 		vscode.window.showErrorMessage(error as string);
@@ -136,7 +137,8 @@ function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<Configuration> {
 	const separator = (os.type() === "Windows_NT") ? ";" : ":";
 
-	const envPath = `${extensionPath}/bin${separator}${process.env.PATH}`;
+	const toolVersion: string = getConfigValue('toolchainVersion') ?? "8.1.0";
+	const envPath = `${extensionPath}/bin/${toolVersion}/${separator}${process.env.PATH}`;
 	try {
 		const make = getConfigValue<string>("generator.make") ?? "make";
 		execSync(make, {

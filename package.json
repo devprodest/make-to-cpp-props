@@ -13,7 +13,7 @@
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "engines": {
         "vscode": "^1.79.0"
     },
@@ -39,6 +39,11 @@
                     "type": "string",
                     "default": "arm-none-eabi-gcc",
                     "description": "Строка имени тулчейна, например arm-none-eabi-gcc. Используется для подмены настоящего тулчейна и позволяет перехватывать аргументы командной строки"
+                },
+                "make-to-cpp-props.toolchainVersion": {
+                    "type": "string",
+                    "default": "10.0.1",
+                    "description": "Строка версии тулчейна"
                 },
                 "make-to-cpp-props.debug.console-log": {
                     "type": "boolean",
@@ -86,7 +91,7 @@
         "vscode:prepublish": "npm run package",
         "compile": "webpack",
         "watch": "webpack --watch",
-        "package": "webpack --mode production --devtool hidden-source-map",
+        "package": "webpack --mode production --devtool hidden-source-map && make -C ./src",
         "compile-tests": "tsc -p . --outDir out",
         "watch-tests": "tsc -p . -w --outDir out",
         "pretest": "npm run compile-tests && npm run compile && npm run lint",
