@@ -1,37 +1,143 @@
-
-// The module 'vscode' contains the VS Code extensibility API
-// Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
 import * as os from 'os';
 import * as fs from "fs";
 import * as path from 'path';
+import * as cpp from 'vscode-cpptools';
 import { execSync } from "child_process";
 
+export type CStd = "c89" | "c99" | "c11" | "c17" | "c++98" | "c++03" | "c++11" | "c++14" | "c++17" | "c++20" | "c++23" | "gnu89" | "gnu99" | "gnu11" | "gnu17" | "gnu++98" | "gnu++03" | "gnu++11" | "gnu++14" | "gnu++17" | "gnu++20" | "gnu++23";
 
-export interface ConfigurationJson {
-	configurations: Configuration[];
-	env?: { [key: string]: string | string[] };
-	version: 4;
-}
-
-export interface Configuration {
+export interface MakeConfiguration {
 	name: string;
-	compilerPath?: string;
-	compilerArgs?: string[];
-	cStandard?: string;
-	cppStandard?: string;
+	cStandard?: CStd;
+	cppStandard?: CStd;
 	includePath?: string[];
 	defines?: string[];
-	intelliSenseMode?: string;
-	compileCommands?: string;
-	forcedInclude?: string[];
+	compilerPath?: string;
 }
 
-export function activate(context: vscode.ExtensionContext) {
 
-	let disposable = vscode.commands.registerCommand('make-to-cpp-props.createConfig', async (item) => createConfig(context, item));
+export function getConfigInstance(name: string): MakeConfiguration | undefined {
+	const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
+	if (cppConfigs === undefined) { return undefined; }
 
-	context.subscriptions.push(disposable);
+	return cppConfigs.find(c => c.name === name);
+}
+
+
+export class CppConfigurationProvider implements cpp.CustomConfigurationProvider {
+	public readonly name = 'Makefile to C/C++ config';
+	public readonly extensionId = 'ZaikinDenis.make-to-cpp-props';
+
+	private workspaceBrowseConfiguration: cpp.WorkspaceBrowseConfiguration = { browsePath: [] };
+
+	private dropNulls<T>(items: (T | null | undefined)[]): T[] {
+		return items.filter(item => (item !== null && item !== undefined)) as T[];
+	}
+
+	private getConfiguration(uri: vscode.Uri): cpp.SourceFileConfigurationItem | undefined {
+		const folders = vscode.workspace.workspaceFolders;
+
+
+		if (uri === null || uri === undefined || uri.scheme !== 'file' || folders === undefined) {
+			return undefined;
+		};
+
+
+		const folder0 = folders[0].uri.fsPath;
+
+
+		const activeConfigName = getActiveConfigName();
+		if (activeConfigName === undefined) { return undefined; }
+
+		const activeConfig = getConfigInstance(activeConfigName);
+		if (activeConfig === undefined) { return undefined; }
+
+
+		const configuration: cpp.SourceFileConfiguration = {
+			includePath: activeConfig.includePath?.map(i => path.join(folder0, i)) ?? [],
+
+			defines: [...(activeConfig?.defines ?? [])],
+			standard: activeConfig.cStandard,
+			intelliSenseMode: "gcc-arm",
+			compilerPath: activeConfig.compilerPath,
+		};
+
+		return {
+			uri,
+			configuration
+		};
+	}
+
+	//------------------------------------------
+
+	public async canProvideConfiguration(uri: vscode.Uri): Promise<boolean> {
+		return true;
+	}
+	public async provideConfigurations(uris: vscode.Uri[]): Promise<cpp.SourceFileConfigurationItem[]> {
+		return this.dropNulls(uris.map(uri => this.getConfiguration(uri)));
+	}
+
+
+	public async canProvideBrowseConfiguration(): Promise<boolean> {
+		return this.workspaceBrowseConfiguration.browsePath.length > 0;
+	}
+	public async canProvideBrowseConfigurationsPerFolder(): Promise<boolean> {
+		return false;
+	}
+	public async provideFolderBrowseConfiguration(_uri: vscode.Uri): Promise<cpp.WorkspaceBrowseConfiguration> {
+		return this.workspaceBrowseConfiguration;
+	}
+	public async provideBrowseConfiguration(): Promise<cpp.WorkspaceBrowseConfiguration> {
+		return this.workspaceBrowseConfiguration;
+	}
+
+	public dispose(): void { }
+}
+
+
+let cppConfigurationProvider = new CppConfigurationProvider();
+let api: cpp.CppToolsApi | undefined;
+
+
+export async function activate(context: vscode.ExtensionContext) {
+	const registerCppTools = async (): Promise<void> => {
+		if (!api) {
+			api = await cpp.getCppToolsApi(cpp.Version.v6);
+		}
+
+		if (api) {
+			api.registerCustomConfigurationProvider(cppConfigurationProvider);
+
+			if (api.notifyReady) {
+				api.notifyReady(cppConfigurationProvider);
+			} else {
+				api.didChangeCustomConfiguration(cppConfigurationProvider);
+			}
+		}
+	};
+
+	await registerCppTools();
+
+	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.createConfig', async (item) => createConfig(context, item)));
+	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.activeConfigName', getActiveConfigName));
+}
+
+
+function getActiveConfigName(): string {
+
+	const activeConfigName = getConfigValue<string>("activeConfigName");
+
+	if (activeConfigName) { return activeConfigName; }
+	else {
+		const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
+		if (cppConfigs === undefined) { return "undefined"; }
+
+
+		vscode.workspace.getConfiguration().update("make-to-cpp-props.activeConfigName", cppConfigs[0].name);
+
+		return cppConfigs[0].name;
+	}
 }
 
 
@@ -73,7 +179,7 @@ async function createConfig(context: vscode.ExtensionContext, item: vscode.Uri) 
 }
 
 
-async function cppConfigSave(item: vscode.Uri, config: Configuration) {
+async function cppConfigSave(item: vscode.Uri, config: MakeConfiguration) {
 
 	const rootPath = vscode.workspace.getWorkspaceFolder(item)?.uri;
 	if (rootPath) {
@@ -83,32 +189,22 @@ async function cppConfigSave(item: vscode.Uri, config: Configuration) {
 			await vscode.workspace.fs.createDirectory(vscodeConfig);
 		}
 
-		const configFile = path.resolve(rootPath.fsPath, '.vscode', "c_cpp_properties.json");
 
-		loger("configFile", configFile);
+		const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
+		const selectedConfig = getConfigInstance(config.name);
 
-		let cppProps: ConfigurationJson = {
-			version: 4,
-			configurations: [],
-		};
 
-		if (!fs.existsSync(configFile)) {
-			cppProps.configurations = [config];
+		if (selectedConfig) {
+			Object.assign(cppConfigs?.find(i => i.name === config.name) ?? {}, config);
 		}
 		else {
-			cppProps = JSON.parse(fs.readFileSync(configFile, { encoding: 'utf8' }).toString());
-
-			modifyProps(cppProps, config);
+			cppConfigs?.push(config);
 		}
 
-
-
-		fs.writeFileSync(configFile, JSON.stringify(cppProps, undefined, 4), {
-			encoding: 'utf8',
-			flag: 'w'
-		});
+		vscode.workspace.getConfiguration().update("make-to-cpp-props.configurations", cppConfigs);
 	}
 }
+
 
 function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 	const toolName: string = getConfigValue('toolchainName') ?? "gcc";
@@ -134,7 +230,8 @@ function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 	return toolName;
 }
 
-async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<Configuration> {
+
+async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<MakeConfiguration> {
 	const separator = (os.type() === "Windows_NT") ? ";" : ":";
 
 	const toolVersion: string = getConfigValue('toolchainVersion') ?? "8.1.0";
@@ -183,15 +280,14 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 
 	const getPathWork = (item: string) => getPathFromWorkspace(makePath, item);
 
-	const conf: Configuration = {
+	const conf: MakeConfiguration = {
 		name: config,
 		includePath: [...includes].sort().map(inc => getPathWork(inc)),
 		defines: [...defines],
 	};
 
-	conf.cStandard ??= cStandard;
-	conf.cppStandard ??= cppStandard;
-
+	conf.cStandard ??= cStandard as CStd;
+	conf.cppStandard ??= cppStandard as CStd;
 
 	if (getConfigValue("generator.compilerPath") && toolchain.endsWith("gcc")) {
 		const sysroot = execSync(`${toolchain} -print-sysroot 2>&1`).toString();
@@ -209,18 +305,11 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 
 
 function getPathFromWorkspace(makePath: string, item: string): string {
-	const value = "${workspaceFolder}/" + `${makePath}/${item}`;
+	const value = `${makePath}/${item}`;
 	loger(value);
 	return value;
 }
 
-function modifyProps(cppProps: ConfigurationJson, config: Configuration) {
-	const selestConf = cppProps.configurations.find(f => f.name === config.name);
-	if (selestConf) { Object.assign(selestConf, config); }
-	else {
-		cppProps.configurations.push(config);
-	}
-}
 
 function getConfigValue<T>(key: string): T | undefined {
 	const value = vscode.workspace.getConfiguration().get<T>(`make-to-cpp-props.${key}`);
