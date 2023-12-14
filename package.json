@@ -13,7 +13,7 @@
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.0.11",
+    "version": "0.1.2",
     "engines": {
         "vscode": "^1.83.0"
     },
@@ -32,7 +32,9 @@
     "activationEvents": [
         "onLanguage:c",
         "onLanguage:cpp",
-        "onLanguage:cuda-cpp"
+        "onLanguage:cuda-cpp",
+        "onLanguage:objective-c",
+        "onLanguage:objective-cpp"
     ],
     "main": "./dist/extension.js",
     "contributes": {
@@ -120,13 +122,33 @@
                         "additionalProperties": false
                     }
                 },
-                "make-to-cpp-props.toolchainName": {
+                "make-to-cpp-props.toolchainPrefix": {
                     "type": "string",
-                    "default": "arm-none-eabi-gcc",
+                    "default": "arm-none-eabi",
                     "description": "Строка имени тулчейна, например arm-none-eabi-gcc. Используется для подмены настоящего тулчейна и позволяет перехватывать аргументы командной строки"
                 },
                 "make-to-cpp-props.activeConfigName": {
                     "type": "string"
+                },
+                "make-to-cpp-props.path": {
+                    "type": "object",
+                    "description": "Пути для переменной PATH",
+                    "properties": {
+                        "linux": {
+                            "type": "array",
+                            "description": "Пути linux для переменной PATH",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "windows": {
+                            "type": "array",
+                            "description": "Пути windows для переменной PATH",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    }
                 },
                 "make-to-cpp-props.toolchainVersion": {
                     "type": "string",
@@ -138,20 +160,14 @@
                     "default": true,
                     "description": "Разрешает печатать логи. Нужно для отладки"
                 },
-                "make-to-cpp-props.defines-regexp": {
-                    "type": "string",
-                    "default": "/\\s-D\\s?([\\w\\=]*[\\w\"\\\\\\.]*)\\s?/g",
-                    "description": "Резулярное выражение для поиска define"
-                },
-                "make-to-cpp-props.includes-regexp": {
-                    "type": "string",
-                    "default": "/\\s-I\\s?\"?([.\\S\\w]*)\"?/g",
-                    "description": "Резулярное выражение для поиска includes"
-                },
-                "make-to-cpp-props.generator.compilerPath": {
+                "make-to-cpp-props.generator.fillCompilerPath": {
                     "type": "boolean",
                     "default": false,
                     "description": "Нужно ли заполнять поле \"compilerPath\""
+                },
+                "make-to-cpp-props.generator.CompilerPath": {
+                    "type": "string",
+                    "description": "Значение поля \"compilerPath\""
                 },
                 "make-to-cpp-props.generator.make": {
                     "type": "string",
@@ -172,6 +188,10 @@
             {
                 "command": "make-to-cpp-props.createConfig",
                 "title": "Сгенерировать конфигурацию"
+            },
+            {
+                "command": "make-to-cpp-props.setActiveConfigName",
+                "title": "Выбрать другую конфигурацию"
             }
         ]
     },

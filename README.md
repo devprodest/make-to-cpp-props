@@ -19,27 +19,34 @@
 #include <stdlib.h>
 int main(int argc, char *argv[])
 {
-    FILE * fp = fopen("output.txt", "a+");
-    for (int i = 0; i < argc; i++) { fprintf(fp, "%s ", argv[i]); }
+    FILE *fv = fopen("version.cfg", "r");
+    if (fv)
+    {
+        fgets(version, sizeof(version), fv);
+        fclose(fv);
+    }
+    FILE *fp = fopen("output.txt", "a+");
+    for (int i = 0; i < argc; i++)
+    {
+        if (strncmp(argv[ i ], "--version", 10) == 0) { printf("%s (%s) %s\n", argv[ 0 ], version, version); }
+
+        fprintf(fp, "%s ", argv[ i ]);
+    }
     fprintf(fp, "\n");
     fclose(fp);
     return 0;
 }
 ```
 
-## Настройки
+## Настройка в качестве провайдера intellisens
 
-Имена параметров начинаются с `make-to-cpp-props.`, например `"make-to-cpp-props.toolchainName"`
+Это необходимо для нормальной работы в мультирут воркспейсах
 
-| Параметр               | Тип     | Комментарий                                                      | Значение по умолчанию                        |
-| :--------------------- | ------- | ---------------------------------------------------------------- | -------------------------------------------- |
-| toolchainName          | Строка  | Имя тулчейна                                                     | arm-none-eabi-gcc                            |
-| debug.console-log      | Boolean | Включает вывод отладочной информации                             | true                                         |
-| defines-regexp         | Строка  | Шаблон регулярного выражения для дефайнов                        | /\\s-D\\s?([\\w\\=]\*[\\w\"\\\\\\.]\*)\\s?/g |
-| includes-regexp        | Строка  | Шаблон регулярного выражения для инклудов                        | /\\s-I\\s?\"?([.\\S\\w]\*)\"?/g              |
-| generator.compilerPath | Boolean | Разрешает добавлять в конфиг путь к компилятору (работает криво) | false                                        |
+```json
+"C_Cpp.default.configurationProvider": "ZaikinDenis.make-to-cpp-props",
+```
 
-Настройки можно менять по своему усмотрению. Рекомендуется `toolchainName` определять в настройках папки или воркспейса.
+![Alt text](assets/config-selector.png)
 
 ## Как использовать
 
@@ -47,13 +54,31 @@ int main(int argc, char *argv[])
 1. Вызвать контекстное меню на папке в которой лежит целевой Makefile. Поддерживаются стандартные имена "GNUmakefile", "makefile", "Makefile" и файлы ".mk"
 1. Запустить команду и дождаться выполнения.
 
+
+```json
+"make-to-cpp-props.toolchainVersion": "10.0.1",
+"make-to-cpp-props.toolchainPrefix": "arm-none-eabi",
+"make-to-cpp-props.generator.make": "make clean && make all",
+"make-to-cpp-props.generator.CompilerPath": "/path/to/gcc/bin",
+"make-to-cpp-props.path": {
+    "linux": [
+        "/path/to/1",
+        "/path/to/2"
+    ],
+    "windows": [
+        "c:/path/to/1",
+        "c:/path/to/2"
+    ],
+},
+```
+
 ![Demo](assets/how-to-use.gif)
+
+
 
 ## Существующие проблемы
 
-1. Не поддерживается конфиг json с комментариями (обещаю исправить).
-1. Плохо работает объединение путей на разных платформах, поэтому пути в конфиге не красивые (обещаю исправить)
-1. Регулярки не красивые (я не специалист в них, буду рад помощи)
+1. Регулярки (не специалист в них, буду рад помощи)
 
 ## Планы
 

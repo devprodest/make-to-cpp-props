@@ -16,12 +16,29 @@ export interface MakeConfiguration {
 	compilerPath?: string;
 }
 
+export interface PathSettings {
+	linux: string[];
+	windows: string[];
+};
+
+let _activeConfigNameStatusBarItem: vscode.StatusBarItem;
+
+let _activeConfigName: string | undefined;
+let _cppConfigs: MakeConfiguration[] | undefined;
+// let _defines: RegExp | string | undefined;
+// let _includes: RegExp | string | undefined;
+let _toolPrefix: string;
+let _сompilerPath: string | undefined;
+let _toolVersion: string;
+let _makeString: string;
+let _fillCompilerPath: boolean | undefined;
+let _printLog: boolean | undefined;
+let _paths: PathSettings | undefined;
 
 export function getConfigInstance(name: string): MakeConfiguration | undefined {
-	const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
-	if (cppConfigs === undefined) { return undefined; }
+	if (_cppConfigs === undefined) { return undefined; }
 
-	return cppConfigs.find(c => c.name === name);
+	return _cppConfigs.find(c => c.name === name);
 }
 
 
@@ -46,27 +63,29 @@ export class CppConfigurationProvider implements cpp.CustomConfigurationProvider
 
 		const folder0 = folders[0].uri.fsPath;
 
+		if (_activeConfigName === undefined) { return undefined; }
 
-		const activeConfigName = getActiveConfigName();
-		if (activeConfigName === undefined) { return undefined; }
-
-		const activeConfig = getConfigInstance(activeConfigName);
+		const activeConfig = getConfigInstance(_activeConfigName);
 		if (activeConfig === undefined) { return undefined; }
 
-
 		const configuration: cpp.SourceFileConfiguration = {
-			includePath: activeConfig.includePath?.map(i => path.join(folder0, i)) ?? [],
+			includePath: [`${activeConfig.compilerPath ?? _сompilerPath}/../${_toolPrefix}/include`, ...(activeConfig.includePath?.map(i => path.join(folder0, i)) ?? [])],
 
 			defines: [...(activeConfig?.defines ?? [])],
 			standard: activeConfig.cStandard,
 			intelliSenseMode: "gcc-arm",
-			compilerPath: activeConfig.compilerPath,
+			compilerPath: activeConfig.compilerPath ?? _сompilerPath,
 		};
 
-		return {
+
+		const cppconf = {
 			uri,
 			configuration
 		};
+
+		loger(cppconf);
+
+		return cppconf;
 	}
 
 	//------------------------------------------
@@ -100,6 +119,37 @@ let cppConfigurationProvider = new CppConfigurationProvider();
 let api: cpp.CppToolsApi | undefined;
 
 
+function getConfigs() {
+
+	_printLog = getConfigValue<boolean>(" debug.console-log");
+
+	_cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
+	_activeConfigName = getConfigValue<string>("activeConfigName");
+
+
+	if (!_activeConfigName) {
+		if (_cppConfigs === undefined) { _activeConfigName = undefined; }
+		else {
+			updateActiveConfigName(_cppConfigs[0].name);
+			_activeConfigName = _cppConfigs[0].name;
+		}
+	}
+
+	// _defines = getConfigValue<string | RegExp>("defines-regexp");
+	// _includes = getConfigValue<string | RegExp>("includes-regexp");
+
+	_toolPrefix = getConfigValue<string>('toolchainPrefix') ?? "arm-none-eabi";
+
+	_toolVersion = getConfigValue<string>('toolchainVersion') ?? "8.1.0";
+
+	_fillCompilerPath = getConfigValue<boolean>("generator.fillCompilerPath");
+	_сompilerPath = getConfigValue<string>("generator.CompilerPath");
+
+	_makeString = getConfigValue<string>("generator.make") ?? "make";
+
+	_paths = getConfigValue("path");
+}
+
 export async function activate(context: vscode.ExtensionContext) {
 	const registerCppTools = async (): Promise<void> => {
 		if (!api) {
@@ -117,26 +167,42 @@ export async function activate(context: vscode.ExtensionContext) {
 		}
 	};
 
+
 	await registerCppTools();
+	getConfigs();
+
 
 	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.createConfig', async (item) => createConfig(context, item)));
-	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.activeConfigName', getActiveConfigName));
+	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.activeConfigName', () => _activeConfigName));
+	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.setActiveConfigName', setActiveConfigName));
+	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(getConfigs));
+
+
+	_activeConfigNameStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	_activeConfigNameStatusBarItem.command = 'make-to-cpp-props.setActiveConfigName';
+	_activeConfigNameStatusBarItem.color = new vscode.ThemeColor("statusBarItem.warningForeground");
+	_activeConfigNameStatusBarItem.backgroundColor = new vscode.ThemeColor("statusBarItem.warningBackground");
+
+	updateActiveConfigName(_activeConfigName ?? 'undefined', false);
+
+	_activeConfigNameStatusBarItem.show();
+	context.subscriptions.push(_activeConfigNameStatusBarItem);
 }
 
 
-function getActiveConfigName(): string {
-
-	const activeConfigName = getConfigValue<string>("activeConfigName");
-
-	if (activeConfigName) { return activeConfigName; }
-	else {
-		const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
-		if (cppConfigs === undefined) { return "undefined"; }
+function updateActiveConfigName(confName: string, update: boolean = true) {
+	if (update) { vscode.workspace.getConfiguration().update("make-to-cpp-props.activeConfigName", confName); }
+	_activeConfigNameStatusBarItem.text = `$(code) Active config: ${confName}`;
+}
 
 
-		vscode.workspace.getConfiguration().update("make-to-cpp-props.activeConfigName", cppConfigs[0].name);
+async function setActiveConfigName() {
+	const names: string[] = _cppConfigs?.map(c => c.name) ?? [];
 
-		return cppConfigs[0].name;
+	const result = await vscode.window.showQuickPick(names, { canPickMany: false });
+
+	if (result) {
+		updateActiveConfigName(result);
 	}
 }
 
@@ -163,14 +229,13 @@ async function createConfig(context: vscode.ExtensionContext, item: vscode.Uri) 
 
 		const files = await vscode.workspace.fs.readDirectory(item);
 
-
 		if (files.some(f => isMakefile(f[0], f[1]))) {
-
 			const config = await cppConfigMake(context, item, toolchain);
 
-			await cppConfigSave(item, config);
-
-			loger("Done");
+			if (config) {
+				await cppConfigSave(item, config);
+				loger("Done");
+			}
 		}
 		else {
 			vscode.window.showWarningMessage('Makefiles not found', { modal: true });
@@ -190,29 +255,26 @@ async function cppConfigSave(item: vscode.Uri, config: MakeConfiguration) {
 		}
 
 
-		const cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
 		const selectedConfig = getConfigInstance(config.name);
 
 
 		if (selectedConfig) {
-			Object.assign(cppConfigs?.find(i => i.name === config.name) ?? {}, config);
+			Object.assign(_cppConfigs?.find(i => i.name === config.name) ?? {}, config);
 		}
 		else {
-			cppConfigs?.push(config);
+			_cppConfigs?.push(config);
 		}
 
-		vscode.workspace.getConfiguration().update("make-to-cpp-props.configurations", cppConfigs);
+		vscode.workspace.getConfiguration().update("make-to-cpp-props.configurations", _cppConfigs);
 	}
 }
 
 
 function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
-	const toolName: string = getConfigValue('toolchainName') ?? "gcc";
-	const toolVersion: string = getConfigValue('toolchainVersion') ?? "8.1.0";
-
 	const binName = (os.type() === "Windows_NT") ? "windows.exe" : "linux";
 
-	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", toolVersion, toolName);
+	const toolName = `${_toolPrefix}-gcc`;
+	const toolchain = vscode.Uri.joinPath(extensionUri, "bin", _toolVersion, toolName);
 
 	loger("binName", binName);
 	loger("toolchain", toolchain);
@@ -221,7 +283,7 @@ function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 		if (!fs.existsSync(toolchain.path)) {
 			const toolBin = vscode.Uri.joinPath(extensionUri, "bin", binName);
 			vscode.workspace.fs.copy(toolBin, toolchain, { overwrite: true });
-			vscode.workspace.fs.writeFile(vscode.Uri.joinPath(extensionUri, "bin", toolVersion, "version.cfg"), new TextEncoder().encode(toolVersion));
+			vscode.workspace.fs.writeFile(vscode.Uri.joinPath(extensionUri, "bin", _toolVersion, "version.cfg"), new TextEncoder().encode(_toolVersion));
 		}
 	} catch (error) {
 		vscode.window.showErrorMessage(error as string);
@@ -231,14 +293,24 @@ function createToolchain({ extensionUri }: vscode.ExtensionContext): string {
 }
 
 
-async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<MakeConfiguration> {
-	const separator = (os.type() === "Windows_NT") ? ";" : ":";
+async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: vscode.Uri, toolchain: string): Promise<MakeConfiguration | undefined> {
+	let separator: string;
+	let paths: string[] = [];
 
-	const toolVersion: string = getConfigValue('toolchainVersion') ?? "8.1.0";
-	const envPath = `${extensionPath}/bin/${toolVersion}/${separator}${process.env.PATH}`;
+	if (os.type() === "Windows_NT") {
+		separator = ";";
+		paths = _paths?.windows ?? [];
+	}
+	else {
+		separator = ":";
+		paths = _paths?.linux ?? [];
+	}
+
+	loger("make", _makeString);
+
+	const envPath = [`${extensionPath}/bin/${_toolVersion}`, ...paths, process.env.PATH].join(separator);
 	try {
-		const make = getConfigValue<string>("generator.make") ?? "make";
-		execSync(make, {
+		execSync(_makeString, {
 			cwd: item.fsPath,
 			env: {
 				...process.env,
@@ -249,58 +321,60 @@ async function cppConfigMake({ extensionPath }: vscode.ExtensionContext, item: v
 		vscode.window.showErrorMessage(error as string);
 	}
 
-
 	const output = vscode.Uri.joinPath(item, "output.txt");
-	const doc = await vscode.workspace.openTextDocument(output);
-	const compilelog = doc.getText();
-	vscode.workspace.fs.delete(output);
+	if (fs.existsSync(output.fsPath)) {
+		const doc = await vscode.workspace.openTextDocument(output);
+		const compilelog = doc.getText();
+		vscode.workspace.fs.delete(output);
+
+		const defMatchRegex: RegExp = RegExp(/-D\s?([\w\d]+=[\w\d]+|[\w\d]+="[\w\d\s :,\.\/\-]+"|[\w\d]+)/g);
+		const incMatchRegex: RegExp = RegExp(/\s?-I\s?"?([.\S\w]*)"?/g);
+
+		const stdCMatch = compilelog.matchAll(/\s?\-std=([cgnu]*[\dx]{2})\s?/g);
+		const stdCppMatch = compilelog.matchAll(/\s?\-std=([cgnu]*\+{2}\d{1,2}\w?)\s?/g);
+		const defMatch = compilelog.matchAll(defMatchRegex);
+		const incMatch = compilelog.matchAll(incMatchRegex);
+
+		const config = path.basename(item.fsPath);
+		let cStandard = Array.from(stdCMatch, m => m[1] as string)?.[0];
+		const cppStandard = Array.from(stdCppMatch, m => m[1] as string)?.[0];
+		const defines = new Set(Array.from(defMatch, m => m[1] as string));
+		const includes = new Set(Array.from(incMatch, m => m[1] as string));
+
+		const rootPath = vscode.workspace.getWorkspaceFolder(item)?.uri.fsPath || ".";
+		const makePath = vscode.workspace.asRelativePath(item, false);
+
+		loger("rootPath", rootPath);
+		loger("makePath", makePath);
+
+		const getPathWork = (item: string) => getPathFromWorkspace(makePath, item);
+
+		const conf: MakeConfiguration = {
+			name: config,
+			includePath: [...includes].sort().map(inc => getPathWork(inc)),
+			defines: [...defines],
+		};
 
 
-	const _defines = getConfigValue<string>("defines-regex");
-	const defMatchRegex: RegExp = RegExp(_defines ?? /\s?-D\s?([\w\=]*[\w\"\.]*)\s?/g);
-	const _includes = getConfigValue<string>("includes-regex");
-	const incMatchRegex: RegExp = RegExp(_includes ?? /\s?-I\s?"?([.\S\w]*)"?/g);
+		if (cStandard === 'c2x') { cStandard = "c23"; }
 
-	const stdCMatch = compilelog.matchAll(/\s?\-std=([cgnu]*[\dx]{2})\s?/g);
-	const stdCppMatch = compilelog.matchAll(/\s?\-std=([cgnu]*\+{2}\d{1,2}\w?)\s?/g);
-	const defMatch = compilelog.matchAll(defMatchRegex);
-	const incMatch = compilelog.matchAll(incMatchRegex);
 
-	const config = path.basename(item.fsPath);
-	const cStandard = Array.from(stdCMatch, m => m[1] as string)?.[0];
-	const cppStandard = Array.from(stdCppMatch, m => m[1] as string)?.[0];
-	const defines = new Set(Array.from(defMatch, m => m[1] as string));
-	const includes = new Set(Array.from(incMatch, m => m[1] as string));
+		conf.cStandard ??= cStandard as CStd;
+		conf.cppStandard ??= cppStandard as CStd;
 
-	const rootPath = vscode.workspace.getWorkspaceFolder(item)?.uri.fsPath || ".";
-	const makePath = vscode.workspace.asRelativePath(item, false);
+		if (_fillCompilerPath && toolchain.endsWith("gcc")) {
+			const sysroot = execSync(`${toolchain} -print-sysroot 2>&1`).toString();
 
-	loger("rootPath", rootPath);
-	loger("makePath", makePath);
+			loger("sysroot", sysroot);
 
-	const getPathWork = (item: string) => getPathFromWorkspace(makePath, item);
-
-	const conf: MakeConfiguration = {
-		name: config,
-		includePath: [...includes].sort().map(inc => getPathWork(inc)),
-		defines: [...defines],
-	};
-
-	conf.cStandard ??= cStandard as CStd;
-	conf.cppStandard ??= cppStandard as CStd;
-
-	if (getConfigValue("generator.compilerPath") && toolchain.endsWith("gcc")) {
-		const sysroot = execSync(`${toolchain} -print-sysroot 2>&1`).toString();
-
-		loger("sysroot", sysroot);
-
-		if (sysroot) {
-			conf.compilerPath = getPathWork(path.join(sysroot, toolchain));
+			if (sysroot) {
+				conf.compilerPath = getPathWork(path.join(sysroot, toolchain));
+			}
 		}
+		return conf;
 	}
 
-
-	return conf;
+	return undefined;
 }
 
 
@@ -316,6 +390,7 @@ function getConfigValue<T>(key: string): T | undefined {
 	loger(key, value ?? "undefined");
 	return value;
 }
+
 
 function loger(...result: any[]) {
 	if (vscode.workspace.getConfiguration().get("make-to-cpp-props.debug.console-log") ?? true) { console.log(...result); }
