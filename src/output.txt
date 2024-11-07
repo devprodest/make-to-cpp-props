@@ -1,0 +1,2 @@
+../bin/linux -I sdsd -Isdds 
+../bin/linux -I sdsd -Isdds 

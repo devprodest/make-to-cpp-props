@@ -13,16 +13,18 @@ int main(int argc, char *argv[])
         fclose(fv);
     }
 
-    FILE *fp = fopen("output.txt", "a+");
+    char * string = malloc(2*1024*1024);
+    char * str = string;
     for (int i = 0; i < argc; i++)
     {
         if (strncmp(argv[ i ], "--version", 10) == 0) { printf("%s (%s) %s\n", argv[ 0 ], version, version); }
 
-        fprintf(fp, "%s ", argv[ i ]);
+        size_t len = sprintf(str, "%s ", argv[ i ]);
+        str += len;
     }
 
-    fprintf(fp, "\n");
-    fclose(fp);
-
+    printf("%s\n", string);
+    free(string);
+    
     return 0;
 }

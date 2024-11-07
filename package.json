@@ -13,9 +13,9 @@
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.1.2",
+    "version": "0.2.0",
     "engines": {
-        "vscode": "^1.83.0"
+        "vscode": "^1.85.0"
     },
     "keywords": [
         "Makefile",
@@ -31,6 +31,7 @@
     ],
     "activationEvents": [
         "onLanguage:c",
+        "onLanguage:S",
         "onLanguage:cpp",
         "onLanguage:cuda-cpp",
         "onLanguage:objective-c",
@@ -51,7 +52,6 @@
                         "properties": {
                             "name": {
                                 "markdownDescription": "Configuration identifier. `Mac`, `Linux`, and `Win32` are special identifiers for configurations that will be auto-selected on those platforms, but the identifier can be anything.",
-                                "descriptionHint": "Markdown text between `` should not be translated or localized (they represent literal text) and the capitalization, spacing, and punctuation (including the ``) should not be altered.",
                                 "type": "string"
                             },
                             "cStandard": {
@@ -94,7 +94,6 @@
                             },
                             "includePath": {
                                 "markdownDescription": "A list of paths for the IntelliSense engine to use while searching for included headers. Searching on these paths is not recursive. Specify `**` to indicate recursive search. For example, `${workspaceFolder}/**` will search through all subdirectories while `${workspaceFolder}` will not. Usually, this should not include system includes; instead, set `C_Cpp.default.compilerPath`.",
-                                "descriptionHint": "Markdown text between `` should not be translated or localized (they represent literal text) and the capitalization, spacing, and punctuation (including the ``) should not be altered.",
                                 "type": "array",
                                 "items": {
                                     "type": "string"
@@ -102,7 +101,6 @@
                             },
                             "defines": {
                                 "markdownDescription": "A list of preprocessor definitions for the IntelliSense engine to use while parsing files. Optionally, use `=` to set a value, e.g. `VERSION=1`.",
-                                "descriptionHint": "Markdown text between `` should not be translated or localized (they represent literal text) and the capitalization, spacing, and punctuation (including the ``) should not be altered.",
                                 "type": "array",
                                 "items": {
                                     "type": "string"
@@ -110,27 +108,20 @@
                             },
                             "compilerPath": {
                                 "markdownDescription": "Full path of the compiler being used, e.g. `/usr/bin/gcc`, to enable more accurate IntelliSense.",
-                                "descriptionHint": "Markdown text between `` should not be translated or localized (they represent literal text) and the capitalization, spacing, and punctuation (including the ``) should not be altered.",
                                 "type": "string"
                             },
                             "mergeConfigurations": {
                                 "markdownDescription": "Set to `true` to merge include paths, defines, and forced includes with those from a configuration provider.",
-                                "descriptionHint": "Markdown text between `` should not be translated or localized (they represent literal text) and the capitalization, spacing, and punctuation (including the ``) should not be altered.",
                                 "type": "boolean"
                             }
                         },
                         "additionalProperties": false
                     }
                 },
-                "make-to-cpp-props.toolchainPrefix": {
-                    "type": "string",
-                    "default": "arm-none-eabi",
-                    "description": "Строка имени тулчейна, например arm-none-eabi-gcc. Используется для подмены настоящего тулчейна и позволяет перехватывать аргументы командной строки"
-                },
                 "make-to-cpp-props.activeConfigName": {
                     "type": "string"
                 },
-                "make-to-cpp-props.path": {
+                "make-to-cpp-props.generator.env.path": {
                     "type": "object",
                     "description": "Пути для переменной PATH",
                     "properties": {
@@ -147,23 +138,25 @@
                             "items": {
                                 "type": "string"
                             }
+                        },
+                        "all": {
+                            "type": "array",
+                            "description": "Пути для всех платформ",
+                            "items": {
+                                "type": "string"
+                            }
                         }
                     }
                 },
-                "make-to-cpp-props.toolchainVersion": {
+                "make-to-cpp-props.generator.toolchainPath": {
+                    "type": "string",
+                    "default": "arm-none-eabi-gcc",
+                    "description": "Строка имени тулчейна, например arm-none-eabi-gcc. Используется для подмены настоящего тулчейна и позволяет перехватывать аргументы командной строки"
+                },
+                "make-to-cpp-props.generator.toolchainVersion": {
                     "type": "string",
                     "default": "10.0.1",
-                    "description": "Строка версии тулчейна"
-                },
-                "make-to-cpp-props.debug.console-log": {
-                    "type": "boolean",
-                    "default": true,
-                    "description": "Разрешает печатать логи. Нужно для отладки"
-                },
-                "make-to-cpp-props.generator.fillCompilerPath": {
-                    "type": "boolean",
-                    "default": false,
-                    "description": "Нужно ли заполнять поле \"compilerPath\""
+                    "description": "Строка версии тулчейна. На случай если в makefile есть проверка"
                 },
                 "make-to-cpp-props.generator.CompilerPath": {
                     "type": "string",
@@ -187,11 +180,11 @@
         "commands": [
             {
                 "command": "make-to-cpp-props.createConfig",
-                "title": "Сгенерировать конфигурацию"
+                "title": "Generate configuration"
             },
             {
                 "command": "make-to-cpp-props.setActiveConfigName",
-                "title": "Выбрать другую конфигурацию"
+                "title": "Choose a different configuration"
             }
         ]
     },
@@ -210,20 +203,22 @@
     "devDependencies": {
         "@types/glob": "^8.1.0",
         "@types/mocha": "^10.0.1",
-        "@types/node": "20.2.5",
-        "@types/vscode": "^1.83.0",
-        "@typescript-eslint/eslint-plugin": "^5.59.8",
-        "@typescript-eslint/parser": "^5.59.8",
+        "@types/node": "^22.5.5",
+        "@types/vscode": "^1.85.0",
+        "@typescript-eslint/eslint-plugin": "^8.6.0",
+        "@typescript-eslint/parser": "^8.6.0",
         "@vscode/test-electron": "^2.3.2",
         "copy-webpack-plugin": "^11.0.0",
-        "eslint": "^8.41.0",
-        "glob": "^8.1.0",
+        "eslint": "^9.10.0",
+        "glob": "^11.0.0",
         "mocha": "^10.2.0",
-        "ts-loader": "^9.4.3",
-        "typescript": "^5.3.3",
+        "ts-loader": "^9.5.1",
+        "typescript": "^5.6.2",
+        "vscode": "^1.1.34",
         "vscode-nls-dev": "^4.0.4",
-        "webpack": "^5.85.0",
-        "webpack-cli": "^5.1.1"
+        "vscode-uri": "^3.0.8",
+        "webpack": "^5.94.0",
+        "webpack-cli": "^5.1.4"
     },
     "dependencies": {
         "vscode-cpptools": "^6.1.0"
