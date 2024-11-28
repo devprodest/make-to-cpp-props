@@ -1,7 +1,7 @@
 {
     "name": "make-to-cpp-props",
     "displayName": "Makefile to C/C++ config",
-    "description": "C/Cpp configs generator from makefile",
+    "description": "C/Cpp configs generator from makefile and IntelliSense provider",
     "publisher": "ZaikinDenis",
     "author": {
         "name": "Zaikin Denis",
@@ -13,25 +13,29 @@
         "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.2.0",
+    "version": "0.2.2",
     "engines": {
         "vscode": "^1.85.0"
     },
     "keywords": [
         "Makefile",
         "c",
-        "c++"
+        "c++",
+        "IntelliSense"
     ],
     "categories": [
         "Other",
-        "Snippets"
+        "Snippets",
+        "Programming Languages"
     ],
     "extensionDependencies": [
         "ms-vscode.cpptools"
     ],
     "activationEvents": [
         "onLanguage:c",
-        "onLanguage:S",
+        "onLanguage:arm",
+        "onLanguage:riscv",
+        "onLanguage:avr",
         "onLanguage:cpp",
         "onLanguage:cuda-cpp",
         "onLanguage:objective-c",
@@ -186,7 +190,13 @@
                 "command": "make-to-cpp-props.setActiveConfigName",
                 "title": "Choose a different configuration"
             }
-        ]
+        ],
+        "snippets": [
+			{
+				"language": "c",
+				"path": "./snippets/c.json"
+			}
+		]
     },
     "scripts": {
         "vscode:prepublish": "npm run package",
