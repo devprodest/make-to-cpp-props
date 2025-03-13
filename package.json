@@ -9,8 +9,8 @@
         "url": "https://cdeblog.ru"
     },
     "repository": {
-        "type": "gitlab",
-        "url": "https://gitlab.com/devprodest/make-to-cpp-props.git"
+        "type": "github",
+        "url": "https://github.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
     "version": "0.2.2",
