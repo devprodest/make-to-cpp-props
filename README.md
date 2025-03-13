@@ -1,18 +1,18 @@
 # Makefile to C/C++ config
 
-Генератор конфигураций для C/C++ for Visual Studio Code.
+Configuration Generator for C/C++ for Visual Studio Code.
 
-## Принцип работы
+## How it works
 
-Что бы было понятно как работать и как устранять проблемы.
+So that it would be clear how to work and how to fix problems.
 
-1. Из параметра `make-to-cpp-props.generator.toolchainPath` берется имя тулчейна, например `arm-none-eabi-gcc`
-2. На основе имени тулчейна создается "ловушка"
-3. При генерировании конфига вызывается команд `make`, а путь к пустышке добавляется в начало перечислений переменной среды `PATH`. Тем самым "ловушка" подменяет собой реальный тулчейна и собирает параметры командной строки с которыми вызван тулчейн.
-4. Собранные данные анализируются регулярными выражениями и заполняется структура файла конфига.
-5. Если конфиг с таким именем уже существует, то он обновляется, если нет - создается.
+1. The toolchain name is taken from the `make-to-cpp-props.generator.toolchainPath` parameter, for example `arm-none-eabi-gcc`
+2. A “trap” is created based on the toolchain name
+3. When generating a config, the `make` command is called, and the path to the dummy is added to the beginning of the `PATH` environment variable listings. Thus, the "trap" replaces the real toolchain and collects the command line parameters with which the toolchain is called.
+4. The collected data is analyzed by regular expressions and the config file structure is filled.
+5. If a config with this name already exists, it is updated, if not, it is created.
 
-Исходный код "Ловушки"
+Source code of "Trap"
 
 ```c
 #include <stdio.h>
@@ -42,9 +42,9 @@ int main(int argc, char *argv[])
 ```
 
 
-## Настройка
+## Configuration
 
-### Параметры генератора
+### Generator settings
 
 ```json
 "make-to-cpp-props.generator.toolchainVersion": "10.0.1",
@@ -63,9 +63,9 @@ int main(int argc, char *argv[])
 },
 ```
 
-### Настройка в качестве провайдера intellisens
+### Configuring as an intellisens provider
 
-Это необходимо для нормальной работы в мультирут воркспейсах
+This is necessary for normal operation in multi-root workspaces.
 
 ```json
 "C_Cpp.default.configurationProvider": "ZaikinDenis.make-to-cpp-props",
@@ -73,15 +73,15 @@ int main(int argc, char *argv[])
 
 ![config selector](assets/config-selector.png)
 
-## Использование
+## Usage
 
-1. Установить и настроить
-1. Вызвать контекстное меню на папке в которой лежит целевой Makefile. Поддерживаются стандартные имена "GNUmakefile", "makefile", "Makefile" и файлы ".mk"
-1. Запустить команду генерирования и дождаться выполнения.
+1. Install and configure
+2. Call the context menu on the folder where the target Makefile is located. The standard names "GNUmakefile", "makefile", "Makefile" and ".mk" files are supported
+3. Run the generation command and wait for execution.
 
-В файле настроек появятся два параметра:
-* Имя теккущей конфигурации
-* Описание конфигураций
+Two parameters will appear in the settings file:
+* Current configuration name
+* Configuration description
 
 ```json
 "make-to-cpp-props.configurations": [
@@ -113,11 +113,11 @@ int main(int argc, char *argv[])
 "make-to-cpp-props.activeConfigName": "config2",
 ```
 
-## Существующие проблемы
+## Existing problems
 
-1. Регулярки (не специалист в них, буду рад помощи)
+1. Regular expressions (not an expert in them, I will be glad to help)
 
-## Планы
+## Plans
 
-1. Вынести информацию о конфигурациях сборки в отдельные файлы. 
-1. Вынести текущую конфигурацию из настроек в отдельное локальное хранилище.
+1. Move information about build configurations to separate files.
+2. Move the current configuration from the settings to a separate local storage.
