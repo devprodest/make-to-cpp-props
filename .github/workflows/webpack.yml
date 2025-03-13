@@ -26,8 +26,11 @@ jobs:
       run: |
         sudo apt install gcc-mingw-w64-x86-64-win32
         
+    - name: vsce install
+      run: |
+        npm install -g @vscode/vsce
+        
     - name: Build
       run: |
         npm install
         npm run vscode:build
-        npx webpack
