@@ -1,3 +1,9 @@
+[![](https://vsmarketplacebadges.dev/version-short/ZaikinDenis.make-to-cpp-props.svg)](https://marketplace.visualstudio.com/items?itemName=ZaikinDenis.make-to-cpp-props)
+[![](https://vsmarketplacebadges.dev/downloads-short/ZaikinDenis.make-to-cpp-props.svg)](https://marketplace.visualstudio.com/items?itemName=ZaikinDenis.make-to-cpp-props)
+[![](https://vsmarketplacebadges.dev/rating-short/ZaikinDenis.make-to-cpp-props.svg)](https://marketplace.visualstudio.com/items?itemName=ZaikinDenis.make-to-cpp-props)
+![](https://img.shields.io/github/actions/workflow/status/devprodest/make-to-cpp-props/webpack.yml)
+
+
 # Makefile to C/C++ config
 
 Configuration Generator for C/C++ for Visual Studio Code.
