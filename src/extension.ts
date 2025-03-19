@@ -119,6 +119,22 @@ let api: cpp.CppToolsApi | undefined;
 
 //----------------------------------------------------------------------------------------------------------------------
 
+const registerCppTools = async (): Promise<void> => {
+	if (!api) {
+		api = await cpp.getCppToolsApi(cpp.Version.v6);
+	}
+
+	if (api) {
+		api.registerCustomConfigurationProvider(cppConfigurationProvider);
+
+		if (api.notifyReady) {
+			api.notifyReady(cppConfigurationProvider);
+		} else {
+			api.didChangeCustomConfiguration(cppConfigurationProvider);
+		}
+	}
+};
+
 export function getConfigInstance(name: string): MakeConfiguration | undefined {
 	if (_cppConfigs === undefined) { return undefined; }
 
@@ -126,38 +142,40 @@ export function getConfigInstance(name: string): MakeConfiguration | undefined {
 }
 
 
-async function getConfigs() {
+async function getConfigs(context: vscode.ExtensionContext) {
 	_cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
-	const activeConfig = getConfigValue<string>("activeConfigName");
+	const activeConfig: string | undefined = context.globalState.get("activeConfigName");
 
 	if (_cppConfigs && _cppConfigs.length !== 0) {
 		if (!activeConfig || activeConfig?.length === 0) {
 			_activeConfigName = _cppConfigs[0].name;
-			updateActiveConfigName(_activeConfigName);
+			updateActiveConfigName(context, _activeConfigName);
 		}
 		else { _activeConfigName = activeConfig };
 	}
 	else {
 		vscode.workspace.getConfiguration().update("make-to-cpp-props.configurations", [defaultConfig]);
 		_activeConfigName = "default";
-		updateActiveConfigName(_activeConfigName);
+		updateActiveConfigName(context, _activeConfigName);
 	}
 }
 
 
-function updateActiveConfigName(confName: string) {
+async function updateActiveConfigName(context: vscode.ExtensionContext, confName: string) {
 	logChannel.info("Active config", confName);
-	vscode.workspace.getConfiguration().update("make-to-cpp-props.activeConfigName", confName);
+	context.globalState.update("activeConfigName", confName);
 	api?.didChangeCustomConfiguration(cppConfigurationProvider);
+	await registerCppTools();
+	await getConfigs(context);
 	activeConfigNameStatusBarItem.text = `$(star-full) Active config: ${confName}`;
 }
 
 
-async function setActiveConfigName() {
+async function setActiveConfigName(context: vscode.ExtensionContext) {
 	const names: string[] = _cppConfigs?.map(c => c?.name) ?? ["default"];
 	const result = await vscode.window.showQuickPick(names, { canPickMany: false });
 	if (result) {
-		updateActiveConfigName(result);
+		updateActiveConfigName(context, result);
 	}
 }
 
@@ -337,22 +355,6 @@ function getConfigValue<T>(key: string): T | undefined {
 export async function activate(context: vscode.ExtensionContext) {
 	logChannel = vscode.window.createOutputChannel('make-to-cpp-props', { log: true });
 
-	const registerCppTools = async (): Promise<void> => {
-		if (!api) {
-			api = await cpp.getCppToolsApi(cpp.Version.v6);
-		}
-
-		if (api) {
-			api.registerCustomConfigurationProvider(cppConfigurationProvider);
-
-			if (api.notifyReady) {
-				api.notifyReady(cppConfigurationProvider);
-			} else {
-				api.didChangeCustomConfiguration(cppConfigurationProvider);
-			}
-		}
-	};
-
 	activeConfigNameStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
 	activeConfigNameStatusBarItem.command = 'make-to-cpp-props.setActiveConfigName';
 	activeConfigNameStatusBarItem.color = new vscode.ThemeColor("statusBarItem.warningForeground");
@@ -361,16 +363,16 @@ export async function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(activeConfigNameStatusBarItem);
 
 	await registerCppTools();
-	await getConfigs();
+	await getConfigs(context);
 
 
 	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.createConfig', async (item) => createConfig(context, item)));
 	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.activeConfigName', () => _activeConfigName));
-	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.setActiveConfigName', setActiveConfigName));
+	context.subscriptions.push(vscode.commands.registerCommand('make-to-cpp-props.setActiveConfigName', () => setActiveConfigName(context)));
 	context.subscriptions.push(vscode.workspace.onDidChangeConfiguration(async () => {
 		await registerCppTools();
-		await getConfigs();
+		await getConfigs(context);
 	}));
 
-	updateActiveConfigName(_activeConfigName ?? 'default');
+	updateActiveConfigName(context, _activeConfigName ?? 'default');
 }

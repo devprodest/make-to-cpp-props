@@ -1,5 +1,8 @@
 # Makefile to C/C++ config
 
+## 0.2.0 - 0.2.3
+* REFACT. Removed the `activeConfigName` parameter from the settings, now the active configuration is stored inside the editor individually for each separate workspace
+
 ## 0.2.0
 * REFACT. Changed icon
 * NEW. Added snippets for `c`

@@ -13,7 +13,7 @@
         "url": "https://github.com/devprodest/make-to-cpp-props.git"
     },
     "icon": "make-to-cpp.png",
-    "version": "0.2.2",
+    "version": "0.2.3",
     "engines": {
         "vscode": "^1.85.0"
     },
@@ -121,9 +121,6 @@
                         },
                         "additionalProperties": false
                     }
-                },
-                "make-to-cpp-props.activeConfigName": {
-                    "type": "string"
                 },
                 "make-to-cpp-props.generator.env.path": {
                     "type": "object",
