@@ -144,7 +144,7 @@ export function getConfigInstance(name: string): MakeConfiguration | undefined {
 
 async function getConfigs(context: vscode.ExtensionContext) {
 	_cppConfigs = getConfigValue<MakeConfiguration[]>("configurations");
-	const activeConfig: string | undefined = context.globalState.get("activeConfigName");
+	const activeConfig: string | undefined = context.workspaceState.get("activeConfigName");
 
 	if (_cppConfigs && _cppConfigs.length !== 0) {
 		if (!activeConfig || activeConfig?.length === 0) {
@@ -163,7 +163,7 @@ async function getConfigs(context: vscode.ExtensionContext) {
 
 async function updateActiveConfigName(context: vscode.ExtensionContext, confName: string) {
 	logChannel.info("Active config", confName);
-	context.globalState.update("activeConfigName", confName);
+	context.workspaceState.update("activeConfigName", confName);
 	api?.didChangeCustomConfiguration(cppConfigurationProvider);
 	await registerCppTools();
 	await getConfigs(context);
